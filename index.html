@@ -242,14 +242,35 @@
         }
 
         .base-counter {
-            position: absolute;
-            left: 100%;
-            top: 0;
-            margin-left: 12px;
+            display: block;
+            margin-top: 6px;
+            text-align: center;
             font-family: monospace;
             font-size: 0.85rem;
             color: #8b949e;
             white-space: nowrap;
+        }
+
+        /* 5' and 3' labels beside the input field */
+        .end-label {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #d9d9d9;
+            pointer-events: none;
+        }
+
+        .end-left {
+            right: 100%;
+            margin-right: 12px;
+        }
+
+        .end-right {
+            left: 100%;
+            margin-left: 12px;
         }
 
         .base-counter.over {
@@ -292,6 +313,8 @@
         <div class="input-wrapper">
             <div id="inputBackdrop" class="input-backdrop"></div>
             <input type="text" id="dnaInput" autocomplete="off" spellcheck="false" value="ATCGGCTA">
+            <span class="end-label end-left">5'</span>
+            <span class="end-label end-right">3'</span>
             <span id="baseCounter" class="base-counter"></span>
         </div>
         <div class="hint">Type A, T, C, or G. Illegal characters are highlighted in red within the input field.</div>
@@ -309,7 +332,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.9.0';
+        const APP_VERSION = '1.9.1';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
