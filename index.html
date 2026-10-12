@@ -314,8 +314,8 @@
         <div class="input-wrapper">
             <div id="inputBackdrop" class="input-backdrop"></div>
             <input type="text" id="dnaInput" autocomplete="off" spellcheck="false" value="ATCGGCTA">
-            <span class="end-label end-left">5'</span>
-            <span class="end-label end-right">3'</span>
+            <span class="end-label end-left">3'</span>
+            <span class="end-label end-right">5'</span>
             <span id="baseCounter" class="base-counter"></span>
         </div>
         <div class="hint">Type A, T, C, or G. Illegal characters are highlighted in red within the input field.</div>
@@ -333,7 +333,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.11.0';
+        const APP_VERSION = '1.11.1';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -627,9 +627,9 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
             ctx.font = 'bold 16px monospace';
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'right';
-            ctx.fillText("5'", Math.min(minX, donutLeft) - 10, midY);
+            ctx.fillText("3'", Math.min(minX, donutLeft) - 10, midY);
             ctx.textAlign = 'left';
-            ctx.fillText("3'", maxX + 10, midY);
+            ctx.fillText("5'", maxX + 10, midY);
         }
 
         function renderHelix() {
