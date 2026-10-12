@@ -241,6 +241,29 @@
             padding: 40px;
         }
 
+        .base-counter {
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            margin-left: 12px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #8b949e;
+            white-space: nowrap;
+        }
+
+        .base-counter.over {
+            color: #ff4d4d;
+            font-weight: bold;
+        }
+
+        .char-over {
+            color: #ff4d4d;
+            font-weight: bold;
+            text-decoration: underline wavy #ff4d4d;
+        }
+
         .copy-toast {
             position: fixed;
             padding: 4px 8px;
@@ -270,6 +293,7 @@
         <div class="input-wrapper">
             <div id="inputBackdrop" class="input-backdrop"></div>
             <input type="text" id="dnaInput" autocomplete="off" spellcheck="false" value="ATCGGCTA">
+            <span id="baseCounter" class="base-counter"></span>
         </div>
         <div class="hint">Type A, T, C, or G. Illegal characters are highlighted in red within the input field.</div>
         
@@ -286,7 +310,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.5.2';
+        const APP_VERSION = '1.6.1';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -301,6 +325,8 @@
         document.getElementById('versionLabel').textContent =
             `v${APP_VERSION} · hash ${loadHash(APP_VERSION)}`;
 
+        const MAX_BASES = 3000;
+        const baseCounter = document.getElementById('baseCounter');
         const dnaInput = document.getElementById('dnaInput');
         const inputBackdrop = document.getElementById('inputBackdrop');
         const helixWrapper = document.getElementById('helixWrapper');
@@ -324,12 +350,14 @@
 
         function updateInputBackdrop(val) {
             inputBackdrop.innerHTML = '';
+            let validCount = 0;
             for (let i = 0; i < val.length; i++) {
                 const char = val[i];
                 const span = document.createElement('span');
                 span.textContent = char;
                 if (['A', 'T', 'C', 'G'].includes(char.toUpperCase())) {
-                    span.className = 'char-valid';
+                    span.className = validCount >= MAX_BASES ? 'char-over' : 'char-valid';
+                    validCount++;
                 } else {
                     span.className = 'char-invalid';
                 }
@@ -361,9 +389,14 @@
         function sizeHelixCanvas() {
             const n = HX.seq.length;
             const dpr = window.devicePixelRatio || 1;
-            HX.dx = Math.min(HELIX.DX, 12000 / Math.max(1, n)); // compress for long sequences
-            HX.w = Math.max(480, (n - 1) * HX.dx + 160);
-            HX.h = Math.round(HELIX.R * 2.6 + 60);
+            if (n > MAX_BASES) {
+                HX.w = 720;
+                HX.h = 242;
+            } else {
+                HX.dx = Math.min(HELIX.DX, 12000 / Math.max(1, n)); // compress for long sequences
+                HX.w = Math.max(480, (n - 1) * HX.dx + 160);
+                HX.h = Math.round(HELIX.R * 2.6 + 60);
+            }
             helixCanvas.width = Math.round(HX.w * dpr);
             helixCanvas.height = Math.round(HX.h * dpr);
             helixCanvas.style.width = HX.w + 'px';
@@ -394,6 +427,17 @@
             ctx.clearRect(0, 0, HX.w, HX.h);
             const n = HX.seq.length;
             if (n === 0) return;
+
+            if (n > MAX_BASES) {
+                ctx.fillStyle = '#e5e7eb';
+                ctx.fillRect(0, 0, HX.w, HX.h);
+                ctx.fillStyle = '#374151';
+                ctx.font = 'bold 18px -apple-system, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Sequence too long', HX.w / 2, HX.h / 2);
+                return;
+            }
 
             const { R, CR, STEP } = HELIX;
             const DX = HX.dx;
@@ -462,6 +506,8 @@
             const rawValue = dnaInput.value;
             updateInputBackdrop(rawValue);
             HX.seq = rawValue.toUpperCase().split('').filter(c => ['A','T','C','G'].includes(c));
+            baseCounter.textContent = `${HX.seq.length} / ${MAX_BASES}`;
+            baseCounter.classList.toggle('over', HX.seq.length > MAX_BASES);
             helixWrapper.innerHTML = '';
 
             if (HX.seq.length === 0) {
@@ -504,6 +550,11 @@
         }
         requestAnimationFrame(animateHelix);
 
+        // Keep the coloured highlight layer scrolled with the input text.
+        function syncBackdropScroll() {
+            inputBackdrop.scrollLeft = dnaInput.scrollLeft;
+        }
+        ['input', 'keyup', 'click', 'select', 'scroll'].forEach(ev => dnaInput.addEventListener(ev, syncBackdropScroll));
         dnaInput.addEventListener('input', renderHelix);
         renderHelix();
 
