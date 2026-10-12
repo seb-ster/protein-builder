@@ -332,7 +332,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.10.1';
+        const APP_VERSION = '1.10.2';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -567,7 +567,7 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
             let donutLeft = Infinity; // left-most screen x of the donut, used to place the 5' label
             if (HELIX.SHOW_DONUT) {
                 const UN = 48, VN = 16;
-                const xL = (0 - (n - 1) / 2) * DX;   // x of the left-most base pair
+                const xL = (0 - (n - 1) / 2) * DX + 30; // left-most base pair, shifted right by 30 so the 5' label stays visible
                 const Rt = R + CR + 10;               // ring radius (clears both strands)
                 const rt = 8;                         // tube radius
                 const grid = [];
