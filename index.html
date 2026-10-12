@@ -286,7 +286,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.3.0';
+        const APP_VERSION = '1.4.0';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -343,86 +343,102 @@
             return conn;
         }
 
+        // Draws both strands as sine waves half a cycle apart, so they cross
+        // each other. Pieces nearer the viewer (cos > 0) are drawn on top.
         function renderHelix() {
             const rawValue = dnaInput.value;
             updateInputBackdrop(rawValue);
             helixWrapper.innerHTML = '';
 
-            const upperVal = rawValue.toUpperCase();
-            const validChars = upperVal.split('').filter(c => ['A','T','C','G'].includes(c));
-
-            if (validChars.length === 0) {
+            const seq = rawValue.toUpperCase().split('').filter(c => ['A','T','C','G'].includes(c));
+            if (seq.length === 0) {
                 helixWrapper.innerHTML = '<div class="placeholder-text">Enter valid DNA letters (A, T, C, G) above to display both double helix strands.</div>';
                 return;
             }
 
-            const strand1Row = document.createElement('div');
-            strand1Row.className = 'strand-row';
-            const label1 = document.createElement('div');
-            label1.className = 'strand-label';
-            label1.textContent = 'Strand 1:';
-            strand1Row.appendChild(label1);
+            const NS = 'http://www.w3.org/2000/svg';
+            const DX = 60;      // horizontal distance between base pairs
+            const AMP = 42;     // wave amplitude
+            const R = 19;       // circle radius (matches the 38px circles)
+            const PAD = 30;
+            const STEP = Math.PI / 3;
+            const n = seq.length;
 
-            const track1 = document.createElement('div');
-            track1.className = 'helix-track';
+            const width = (n - 1) * DX + 2 * (R + PAD);
+            const height = 2 * AMP + 2 * (R + PAD);
+            const cy = height / 2;
+            const x0 = R + PAD;
 
-            const bondRow = document.createElement('div');
-            bondRow.className = 'strand-row';
-            const labelBond = document.createElement('div');
-            labelBond.className = 'strand-label';
-            labelBond.textContent = 'Bonds:';
-            bondRow.appendChild(labelBond);
+            const pos1 = i => ({ x: x0 + i * DX, y: cy - AMP * Math.sin(i * STEP), depth: Math.cos(i * STEP) });
+            const pos2 = i => ({ x: x0 + i * DX, y: cy + AMP * Math.sin(i * STEP), depth: -Math.cos(i * STEP) });
 
-            const trackBond = document.createElement('div');
-            trackBond.className = 'bond-track';
+            const svg = document.createElementNS(NS, 'svg');
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            svg.style.display = 'block';
 
-            const strand2Row = document.createElement('div');
-            strand2Row.className = 'strand-row';
-            const label2 = document.createElement('div');
-            label2.className = 'strand-label';
-            label2.textContent = 'Strand 2:';
-            strand2Row.appendChild(label2);
+            const items = []; // { depth, el }
 
-            const track2 = document.createElement('div');
-            track2.className = 'helix-track';
-
-            for (let i = 0; i < validChars.length; i++) {
-                const topBase = validChars[i];
-                const bottomBase = complements[topBase] || '?';
-
-                const topCircle = document.createElement('div');
-                topCircle.className = `circle ${getBaseClass(topBase)}`;
-                topCircle.textContent = topBase;
-                track1.appendChild(topCircle);
-
-                const bondContainer = document.createElement('div');
-                bondContainer.style.width = '38px';
-                bondContainer.style.display = 'flex';
-                bondContainer.style.justifyContent = 'center';
-                bondContainer.style.height = '20px';
-                const bond = document.createElement('div');
-                bond.className = 'bond';
-                bondContainer.appendChild(bond);
-                trackBond.appendChild(bondContainer);
-
-                const bottomCircle = document.createElement('div');
-                bottomCircle.className = `circle ${getBaseClass(bottomBase)}`;
-                bottomCircle.textContent = bottomBase;
-                track2.appendChild(bottomCircle);
-
-                if (i < validChars.length - 1) {
-                    track1.appendChild(makeConnector());
-                    track2.appendChild(makeConnector());
-                }
+            function line(a, b, depth) {
+                const l = document.createElementNS(NS, 'line');
+                l.setAttribute('x1', a.x); l.setAttribute('y1', a.y);
+                l.setAttribute('x2', b.x); l.setAttribute('y2', b.y);
+                l.setAttribute('stroke', '#d9d9d9');
+                l.setAttribute('stroke-width', '3');
+                l.setAttribute('stroke-linecap', 'round');
+                items.push({ depth, el: l });
             }
 
-            strand1Row.appendChild(track1);
-            bondRow.appendChild(trackBond);
-            strand2Row.appendChild(track2);
+            // Vertical bonds between the two strands (always behind)
+            for (let i = 0; i < n; i++) {
+                line(pos1(i), pos2(i), -Infinity);
+            }
 
-            helixWrapper.appendChild(strand1Row);
-            helixWrapper.appendChild(bondRow);
-            helixWrapper.appendChild(strand2Row);
+            // Horizontal connectors along each strand
+            for (let i = 0; i < n - 1; i++) {
+                const a1 = pos1(i), b1 = pos1(i + 1);
+                line(a1, b1, (a1.depth + b1.depth) / 2);
+                const a2 = pos2(i), b2 = pos2(i + 1);
+                line(a2, b2, (a2.depth + b2.depth) / 2);
+            }
+
+            // Base circles
+            const colours = { A: '#ff6b6b', T: '#4dabf7', C: '#ffd43b', G: '#51cf66' };
+            const complements = { A: 'T', T: 'A', C: 'G', G: 'C' };
+
+            function node(p, base) {
+                const g = document.createElementNS(NS, 'g');
+                const c = document.createElementNS(NS, 'circle');
+                c.setAttribute('cx', p.x); c.setAttribute('cy', p.y);
+                c.setAttribute('r', R);
+                c.setAttribute('fill', colours[base]);
+                g.appendChild(c);
+                const t = document.createElementNS(NS, 'text');
+                t.setAttribute('x', p.x); t.setAttribute('y', p.y);
+                t.setAttribute('text-anchor', 'middle');
+                t.setAttribute('dominant-baseline', 'central');
+                t.setAttribute('font-family', 'monospace');
+                t.setAttribute('font-weight', 'bold');
+                t.setAttribute('font-size', '16');
+                t.setAttribute('fill', base === 'C' ? '#000000' : '#ffffff');
+                t.textContent = base;
+                g.appendChild(t);
+                return g;
+            }
+
+            for (let i = 0; i < n; i++) {
+                const top = seq[i];
+                const bottom = complements[top];
+                const p1 = pos1(i), p2 = pos2(i);
+                items.push({ depth: p1.depth, el: node(p1, top) });
+                items.push({ depth: p2.depth, el: node(p2, bottom) });
+            }
+
+            items.sort((a, b) => a.depth - b.depth);
+            items.forEach(item => svg.appendChild(item.el));
+
+            helixWrapper.appendChild(svg);
         }
 
         dnaInput.addEventListener('input', renderHelix);
