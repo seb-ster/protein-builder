@@ -309,7 +309,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.8.2';
+        const APP_VERSION = '1.8.3';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -514,6 +514,14 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
             // Painter's algorithm: far items first, near items last
             items.sort((a, b) => a.depth - b.depth);
             items.forEach(item => item.draw());
+
+            // Label the 5' end of strand 1, just left of the helix
+            const start = strand1[0];
+            ctx.fillStyle = '#8b949e';
+            ctx.font = 'bold 14px monospace';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.fillText("5'", start.sx - CR * start.s - 10, start.sy);
         }
 
         function renderHelix() {
