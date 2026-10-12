@@ -309,7 +309,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.8.4';
+        const APP_VERSION = '1.8.5';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -515,18 +515,19 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
             items.sort((a, b) => a.depth - b.depth);
             items.forEach(item => item.draw());
 
-            // Label the 5' end of strand 1, just left of the helix
-            const start = strand1[0];
-            ctx.fillStyle = '#8b949e';
-            ctx.font = 'bold 14px monospace';
-            ctx.textAlign = 'right';
+            // 5' and 3' labels: light grey, at the helix's vertical centre,
+            // just outside its left and right ends
+            const all = strand1.concat(strand2);
+            const minX = Math.min(...all.map(p => p.sx - CR * p.s));
+            const maxX = Math.max(...all.map(p => p.sx + CR * p.s));
+            const midY = HX.h / 2;
+            ctx.fillStyle = '#d9d9d9';
+            ctx.font = 'bold 16px monospace';
             ctx.textBaseline = 'middle';
-            ctx.fillText("5'", start.sx - CR * start.s - 10, start.sy);
-
-            // Label the 3' end of strand 1, just right of the helix
-            const end = strand1[n - 1];
+            ctx.textAlign = 'right';
+            ctx.fillText("5'", minX - 10, midY);
             ctx.textAlign = 'left';
-            ctx.fillText("3'", end.sx + CR * end.s + 10, end.sy);
+            ctx.fillText("3'", maxX + 10, midY);
         }
 
         function renderHelix() {
