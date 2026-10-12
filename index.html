@@ -286,7 +286,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.5.1';
+        const APP_VERSION = '1.5.2';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -383,8 +383,9 @@
             return { x: x2, y, z: z2 };
         }
 
-        function project(p) {
-            const s = HELIX.CAM / (HELIX.CAM - p.z);
+        // cam: camera distance. It grows with the helix so points never pass the camera.
+        function project(p, cam) {
+            const s = cam / (cam - p.z);
             return { sx: HX.w / 2 + p.x * s, sy: HX.h / 2 + p.y * s, s, z: p.z };
         }
 
@@ -396,13 +397,18 @@
 
             const { R, CR, STEP } = HELIX;
             const DX = HX.dx;
-            const strand1 = [], strand2 = [];
+            const raw1 = [], raw2 = [];
             for (let i = 0; i < n; i++) {
                 const x = (i - (n - 1) / 2) * DX;
                 const t = i * STEP;
-                strand1.push(project(rotate3({ x, y: R * Math.cos(t), z: R * Math.sin(t) })));
-                strand2.push(project(rotate3({ x, y: R * Math.cos(t + Math.PI), z: R * Math.sin(t + Math.PI) })));
+                raw1.push(rotate3({ x, y: R * Math.cos(t), z: R * Math.sin(t) }));
+                raw2.push(rotate3({ x, y: R * Math.cos(t + Math.PI), z: R * Math.sin(t + Math.PI) }));
             }
+            let maxZ = 0;
+            for (const p of raw1.concat(raw2)) maxZ = Math.max(maxZ, Math.abs(p.z));
+            const cam = Math.max(HELIX.CAM, maxZ * 1.5 + 150);
+            const strand1 = raw1.map(p => project(p, cam));
+            const strand2 = raw2.map(p => project(p, cam));
 
             const items = [];
 
