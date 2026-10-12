@@ -309,7 +309,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.8.5';
+        const APP_VERSION = '1.9.0';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -505,6 +505,32 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
                 addLine(strand1[i], strand1[i + 1]);
                 addLine(strand2[i], strand2[i + 1]);
             }
+            // Base-pair bonds as white 3D pills, drawn over the spheres
+            function drawPill(a, b) {
+                const s = (a.s + b.s) / 2;
+                const rad = 4 * s;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(a.sx, a.sy);
+                ctx.lineTo(b.sx, b.sy);
+                ctx.strokeStyle = 'rgba(0,0,0,0.35)';   // soft dark edge
+                ctx.lineWidth = 2 * rad + 2 * s;
+                ctx.stroke();
+                ctx.strokeStyle = '#ffffff';            // white body
+                ctx.lineWidth = 2 * rad;
+                ctx.stroke();
+                ctx.beginPath();                        // highlight along the top
+                ctx.moveTo(a.sx, a.sy - rad * 0.35);
+                ctx.lineTo(b.sx, b.sy - rad * 0.35);
+                ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+                ctx.lineWidth = rad * 0.6;
+                ctx.stroke();
+            }
+            for (let i = 0; i < n; i++) {
+                const a = strand1[i], b = strand2[i];
+                items.push({ depth: 1e9, draw: () => drawPill(a, b) }); // 1e9: always drawn last
+            }
+
             // Base circles
             for (let i = 0; i < n; i++) {
                 addNode(strand1[i], HX.seq[i]);
