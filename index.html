@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DNA Double Helix Visualizer</title>
+    <title>Protein Builder</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230d1117'/%3E%3Cpath d='M3 16 Q9 5 16 16 T29 16' fill='none' stroke='%23ff6b6b' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M3 16 Q9 27 16 16 T29 16' fill='none' stroke='%234dabf7' stroke-width='2.6' stroke-linecap='round'/%3E%3Cline x1='9' y1='10' x2='9' y2='22' stroke='%23d9d9d9' stroke-width='1.6'/%3E%3Cline x1='23' y1='10' x2='23' y2='22' stroke='%23d9d9d9' stroke-width='1.6'/%3E%3C/svg%3E">
     <style>
         :root {
             --bg-color: #0d1117;
@@ -309,7 +310,7 @@
     <div id="versionLabel" class="version-label"></div>
 
     <div class="header-container">
-        <h1>DNA Double Helix Visualizer</h1>
+        <h1>Protein Builder</h1>
         <div class="input-wrapper">
             <div id="inputBackdrop" class="input-backdrop"></div>
             <input type="text" id="dnaInput" autocomplete="off" spellcheck="false" value="ATCGGCTA">
@@ -332,7 +333,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.10.2';
+        const APP_VERSION = '1.11.0';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
