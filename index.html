@@ -286,7 +286,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.4.0';
+        const APP_VERSION = '1.5.0';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -343,103 +343,158 @@
             return conn;
         }
 
-        // Draws both strands as sine waves half a cycle apart, so they cross
-        // each other. Pieces nearer the viewer (cos > 0) are drawn on top.
+        // True 3D double helix: the axis runs left to right. The helix is
+        // rotated in 3D and projected with perspective onto a canvas. Drag to
+        // turn it; it spins slowly when idle.
+        const helixCanvas = document.createElement('canvas');
+        helixCanvas.id = 'helixCanvas';
+        helixCanvas.style.display = 'block';
+        helixCanvas.style.margin = '0 auto';
+        helixCanvas.style.cursor = 'grab';
+        helixCanvas.style.touchAction = 'none';
+
+        const HX = { seq: [], rot: 0.4, tilt: -0.3, spin: true, dragging: false, lastX: 0, lastY: 0, w: 0, h: 0 };
+        const HELIX = { DX: 42, R: 70, CR: 14, STEP: Math.PI / 4, CAM: 520 };
+        const BASE_COLOURS = { A: '#ff6b6b', T: '#4dabf7', C: '#ffd43b', G: '#51cf66' };
+        const COMPLEMENTS = { A: 'T', T: 'A', C: 'G', G: 'C' };
+
+        function sizeHelixCanvas() {
+            const n = HX.seq.length;
+            const dpr = window.devicePixelRatio || 1;
+            HX.w = Math.max(480, (n - 1) * HELIX.DX + 160);
+            HX.h = Math.round(HELIX.R * 2.6 + 60);
+            helixCanvas.width = Math.round(HX.w * dpr);
+            helixCanvas.height = Math.round(HX.h * dpr);
+            helixCanvas.style.width = HX.w + 'px';
+            helixCanvas.style.height = HX.h + 'px';
+            helixCanvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        // Rotate a point about the X axis (helix spin), then the Y axis (tilt).
+        function rotate3(p) {
+            const cr = Math.cos(HX.rot), sr = Math.sin(HX.rot);
+            let y = p.y * cr - p.z * sr;
+            let z = p.y * sr + p.z * cr;
+            let x = p.x;
+            const ct = Math.cos(HX.tilt), st = Math.sin(HX.tilt);
+            const x2 = x * ct + z * st;
+            const z2 = -x * st + z * ct;
+            return { x: x2, y, z: z2 };
+        }
+
+        function project(p) {
+            const s = HELIX.CAM / (HELIX.CAM - p.z);
+            return { sx: HX.w / 2 + p.x * s, sy: HX.h / 2 + p.y * s, s, z: p.z };
+        }
+
+        function drawHelix() {
+            const ctx = helixCanvas.getContext('2d');
+            ctx.clearRect(0, 0, HX.w, HX.h);
+            const n = HX.seq.length;
+            if (n === 0) return;
+
+            const { DX, R, CR, STEP } = HELIX;
+            const strand1 = [], strand2 = [];
+            for (let i = 0; i < n; i++) {
+                const x = (i - (n - 1) / 2) * DX;
+                const t = i * STEP;
+                strand1.push(project(rotate3({ x, y: R * Math.cos(t), z: R * Math.sin(t) })));
+                strand2.push(project(rotate3({ x, y: R * Math.cos(t + Math.PI), z: R * Math.sin(t + Math.PI) })));
+            }
+
+            const items = [];
+
+            function addLine(a, b) {
+                items.push({ depth: (a.z + b.z) / 2, draw() {
+                    const s = (a.s + b.s) / 2;
+                    ctx.strokeStyle = '#d9d9d9';
+                    ctx.lineWidth = 3 * s;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(a.sx, a.sy);
+                    ctx.lineTo(b.sx, b.sy);
+                    ctx.stroke();
+                } });
+            }
+
+            function addNode(p, base) {
+                items.push({ depth: p.z, draw() {
+                    const r = CR * p.s;
+                    ctx.beginPath();
+                    ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2);
+                    ctx.fillStyle = BASE_COLOURS[base];
+                    ctx.fill();
+                    ctx.fillStyle = base === 'C' ? '#000000' : '#ffffff';
+                    ctx.font = `bold ${Math.round(15 * p.s)}px monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(base, p.sx, p.sy + 1);
+                } });
+            }
+
+            // Bonds between the strands (drawn first so they sit behind nodes)
+            for (let i = 0; i < n; i++) addLine(strand1[i], strand2[i]);
+            // Backbone connectors along each strand
+            for (let i = 0; i < n - 1; i++) {
+                addLine(strand1[i], strand1[i + 1]);
+                addLine(strand2[i], strand2[i + 1]);
+            }
+            // Base circles
+            for (let i = 0; i < n; i++) {
+                addNode(strand1[i], HX.seq[i]);
+                addNode(strand2[i], COMPLEMENTS[HX.seq[i]]);
+            }
+
+            // Painter's algorithm: far items first, near items last
+            items.sort((a, b) => a.depth - b.depth);
+            items.forEach(item => item.draw());
+        }
+
         function renderHelix() {
             const rawValue = dnaInput.value;
             updateInputBackdrop(rawValue);
+            HX.seq = rawValue.toUpperCase().split('').filter(c => ['A','T','C','G'].includes(c));
             helixWrapper.innerHTML = '';
 
-            const seq = rawValue.toUpperCase().split('').filter(c => ['A','T','C','G'].includes(c));
-            if (seq.length === 0) {
-                helixWrapper.innerHTML = '<div class="placeholder-text">Enter valid DNA letters (A, T, C, G) above to display both double helix strands.</div>';
+            if (HX.seq.length === 0) {
+                helixWrapper.innerHTML = '<div class="placeholder-text">Enter valid DNA letters (A, T, C, G) above to display the double helix.</div>';
                 return;
             }
-
-            const NS = 'http://www.w3.org/2000/svg';
-            const DX = 60;      // horizontal distance between base pairs
-            const AMP = 42;     // wave amplitude
-            const R = 19;       // circle radius (matches the 38px circles)
-            const PAD = 30;
-            const STEP = Math.PI / 3;
-            const n = seq.length;
-
-            const width = (n - 1) * DX + 2 * (R + PAD);
-            const height = 2 * AMP + 2 * (R + PAD);
-            const cy = height / 2;
-            const x0 = R + PAD;
-
-            const pos1 = i => ({ x: x0 + i * DX, y: cy - AMP * Math.sin(i * STEP), depth: Math.cos(i * STEP) });
-            const pos2 = i => ({ x: x0 + i * DX, y: cy + AMP * Math.sin(i * STEP), depth: -Math.cos(i * STEP) });
-
-            const svg = document.createElementNS(NS, 'svg');
-            svg.setAttribute('width', width);
-            svg.setAttribute('height', height);
-            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-            svg.style.display = 'block';
-
-            const items = []; // { depth, el }
-
-            function line(a, b, depth) {
-                const l = document.createElementNS(NS, 'line');
-                l.setAttribute('x1', a.x); l.setAttribute('y1', a.y);
-                l.setAttribute('x2', b.x); l.setAttribute('y2', b.y);
-                l.setAttribute('stroke', '#d9d9d9');
-                l.setAttribute('stroke-width', '3');
-                l.setAttribute('stroke-linecap', 'round');
-                items.push({ depth, el: l });
-            }
-
-            // Vertical bonds between the two strands (always behind)
-            for (let i = 0; i < n; i++) {
-                line(pos1(i), pos2(i), -Infinity);
-            }
-
-            // Horizontal connectors along each strand
-            for (let i = 0; i < n - 1; i++) {
-                const a1 = pos1(i), b1 = pos1(i + 1);
-                line(a1, b1, (a1.depth + b1.depth) / 2);
-                const a2 = pos2(i), b2 = pos2(i + 1);
-                line(a2, b2, (a2.depth + b2.depth) / 2);
-            }
-
-            // Base circles
-            const colours = { A: '#ff6b6b', T: '#4dabf7', C: '#ffd43b', G: '#51cf66' };
-            const complements = { A: 'T', T: 'A', C: 'G', G: 'C' };
-
-            function node(p, base) {
-                const g = document.createElementNS(NS, 'g');
-                const c = document.createElementNS(NS, 'circle');
-                c.setAttribute('cx', p.x); c.setAttribute('cy', p.y);
-                c.setAttribute('r', R);
-                c.setAttribute('fill', colours[base]);
-                g.appendChild(c);
-                const t = document.createElementNS(NS, 'text');
-                t.setAttribute('x', p.x); t.setAttribute('y', p.y);
-                t.setAttribute('text-anchor', 'middle');
-                t.setAttribute('dominant-baseline', 'central');
-                t.setAttribute('font-family', 'monospace');
-                t.setAttribute('font-weight', 'bold');
-                t.setAttribute('font-size', '16');
-                t.setAttribute('fill', base === 'C' ? '#000000' : '#ffffff');
-                t.textContent = base;
-                g.appendChild(t);
-                return g;
-            }
-
-            for (let i = 0; i < n; i++) {
-                const top = seq[i];
-                const bottom = complements[top];
-                const p1 = pos1(i), p2 = pos2(i);
-                items.push({ depth: p1.depth, el: node(p1, top) });
-                items.push({ depth: p2.depth, el: node(p2, bottom) });
-            }
-
-            items.sort((a, b) => a.depth - b.depth);
-            items.forEach(item => svg.appendChild(item.el));
-
-            helixWrapper.appendChild(svg);
+            sizeHelixCanvas();
+            helixWrapper.appendChild(helixCanvas);
+            drawHelix();
         }
+
+        helixCanvas.addEventListener('pointerdown', (e) => {
+            HX.dragging = true;
+            HX.lastX = e.clientX;
+            HX.lastY = e.clientY;
+            helixCanvas.setPointerCapture(e.pointerId);
+            helixCanvas.style.cursor = 'grabbing';
+        });
+        helixCanvas.addEventListener('pointermove', (e) => {
+            if (!HX.dragging) return;
+            HX.rot += (e.clientX - HX.lastX) * 0.01;
+            HX.tilt = Math.max(-1.2, Math.min(1.2, HX.tilt + (e.clientY - HX.lastY) * 0.005));
+            HX.lastX = e.clientX;
+            HX.lastY = e.clientY;
+            drawHelix();
+        });
+        function endDrag() {
+            HX.dragging = false;
+            helixCanvas.style.cursor = 'grab';
+        }
+        helixCanvas.addEventListener('pointerup', endDrag);
+        helixCanvas.addEventListener('pointercancel', endDrag);
+
+        function animateHelix() {
+            if (HX.spin && !HX.dragging) {
+                HX.rot += 0.012;
+                drawHelix();
+            }
+            requestAnimationFrame(animateHelix);
+        }
+        requestAnimationFrame(animateHelix);
 
         dnaInput.addEventListener('input', renderHelix);
         renderHelix();
