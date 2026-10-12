@@ -14,6 +14,7 @@
             --accent-t: #4dabf7;
             --accent-c: #ffd43b;
             --accent-g: #51cf66;
+            --accent-unknown: #ff6b6b;
         }
 
         body {
@@ -143,48 +144,48 @@
             overflow-x: auto;
         }
 
-        .dna-ladder {
+        .helix-wrapper {
             display: flex;
+            flex-direction: column;
             align-items: center;
+            gap: 10px;
             padding: 20px;
             min-width: max-content;
         }
 
-        .nucleotide-pair {
+        .strand-row {
             display: flex;
-            flex-direction: column;
+            gap: 16px;
             align-items: center;
-            position: relative;
         }
 
-        /* Horizontal backbone line connecting to the next node */
-        .backbone-h {
-            position: absolute;
-            top: 18px;
-            left: 38px;
-            width: 40px;
-            height: 3px;
-            background-color: #d9d9d9;
-            z-index: 0;
+        .strand-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #8b949e;
+            width: 80px;
+            text-align: right;
+            padding-right: 10px;
         }
 
-        .backbone-h-bottom {
-            position: absolute;
-            bottom: 18px;
-            left: 38px;
-            width: 40px;
-            height: 3px;
-            background-color: #d9d9d9;
-            z-index: 0;
+        .helix-track {
+            display: flex;
+            align-items: center;
+            gap: 16px;
         }
 
-        /* Vertical bond line connecting Strand 1 and Strand 2 */
-        .bond-v {
-            width: 3px;
-            height: 50px;
-            background-color: #ced4da;
-            margin: 6px 0;
-            z-index: 1;
+        .bond-track {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            height: 40px;
+        }
+
+        .bond {
+            width: 2px;
+            height: 100%;
+            background-color: #484f58;
+            margin: 0 auto;
         }
 
         .circle {
@@ -198,7 +199,7 @@
             font-size: 1rem;
             font-family: monospace;
             color: #ffffff;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             transition: transform 0.2s ease;
             z-index: 2;
         }
@@ -240,13 +241,13 @@
     </div>
 
     <div class="visualization-container" id="vizContainer">
-        <div class="dna-ladder" id="dnaLadder"></div>
+        <div class="helix-wrapper" id="helixWrapper"></div>
     </div>
 
     <script>
         const dnaInput = document.getElementById('dnaInput');
         const inputBackdrop = document.getElementById('inputBackdrop');
-        const dnaLadder = document.getElementById('dnaLadder');
+        const helixWrapper = document.getElementById('helixWrapper');
 
         const complements = {
             'A': 'T',
@@ -261,7 +262,7 @@
                 case 'T': return 'base-t';
                 case 'C': return 'base-c';
                 case 'G': return 'base-g';
-                default: return 'base-a';
+                default: return 'base-x';
             }
         }
 
@@ -283,52 +284,78 @@
         function renderHelix() {
             const rawValue = dnaInput.value;
             updateInputBackdrop(rawValue);
-            dnaLadder.innerHTML = '';
+            helixWrapper.innerHTML = '';
 
             const upperVal = rawValue.toUpperCase();
             const validChars = upperVal.split('').filter(c => ['A','T','C','G'].includes(c));
 
             if (validChars.length === 0) {
-                dnaLadder.innerHTML = '<div class="placeholder-text">Enter valid DNA letters (A, T, C, G) above to display both strands.</div>';
+                helixWrapper.innerHTML = '<div class="placeholder-text">Enter valid DNA letters (A, T, C, G) above to display both double helix strands.</div>';
                 return;
             }
 
+            const strand1Row = document.createElement('div');
+            strand1Row.className = 'strand-row';
+            const label1 = document.createElement('div');
+            label1.className = 'strand-label';
+            label1.textContent = 'Strand 1:';
+            strand1Row.appendChild(label1);
+
+            const track1 = document.createElement('div');
+            track1.className = 'helix-track';
+
+            const bondRow = document.createElement('div');
+            bondRow.className = 'strand-row';
+            const labelBond = document.createElement('div');
+            labelBond.className = 'strand-label';
+            labelBond.textContent = 'Bonds:';
+            labelBond.style.visibility = 'hidden';
+            bondRow.appendChild(labelBond);
+
+            const trackBond = document.createElement('div');
+            trackBond.className = 'bond-track';
+
+            const strand2Row = document.createElement('div');
+            strand2Row.className = 'strand-row';
+            const label2 = document.createElement('div');
+            label2.className = 'strand-label';
+            label2.textContent = 'Strand 2:';
+            strand2Row.appendChild(label2);
+
+            const track2 = document.createElement('div');
+            track2.className = 'helix-track';
+
             for (let i = 0; i < validChars.length; i++) {
                 const topBase = validChars[i];
-                const bottomBase = complements[topBase] || 'A';
-
-                const pairDiv = document.createElement('div');
-                pairDiv.className = 'nucleotide-pair';
-                pairDiv.style.marginRight = (i < validChars.length - 1) ? '40px' : '0px';
+                const bottomBase = complements[topBase] || '?';
 
                 const topCircle = document.createElement('div');
                 topCircle.className = `circle ${getBaseClass(topBase)}`;
                 topCircle.textContent = topBase;
+                track1.appendChild(topCircle);
 
-                const bondV = document.createElement('div');
-                bondV.className = 'bond-v';
+                const bondContainer = document.createElement('div');
+                bondContainer.style.width = '38px';
+                bondContainer.style.display = 'flex';
+                bondContainer.style.justifyContent = 'center';
+                const bond = document.createElement('div');
+                bond.className = 'bond';
+                bondContainer.appendChild(bond);
+                trackBond.appendChild(bondContainer);
 
                 const bottomCircle = document.createElement('div');
                 bottomCircle.className = `circle ${getBaseClass(bottomBase)}`;
                 bottomCircle.textContent = bottomBase;
-
-                pairDiv.appendChild(topCircle);
-                pairDiv.appendChild(bondV);
-                pairDiv.appendChild(bottomCircle);
-
-                // Add horizontal backbone connectors to the next pair
-                if (i < validChars.length - 1) {
-                    const backboneTop = document.createElement('div');
-                    backboneTop.className = 'backbone-h';
-                    pairDiv.appendChild(backboneTop);
-
-                    const backboneBottom = document.createElement('div');
-                    backboneBottom.className = 'backbone-h-bottom';
-                    pairDiv.appendChild(backboneBottom);
-                }
-
-                dnaLadder.appendChild(pairDiv);
+                track2.appendChild(bottomCircle);
             }
+
+            strand1Row.appendChild(track1);
+            bondRow.appendChild(trackBond);
+            strand2Row.appendChild(track2);
+
+            helixWrapper.appendChild(strand1Row);
+            helixWrapper.appendChild(bondRow);
+            helixWrapper.appendChild(strand2Row);
         }
 
         dnaInput.addEventListener('input', renderHelix);
