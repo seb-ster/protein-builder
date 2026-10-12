@@ -333,7 +333,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.11.1';
+        const APP_VERSION = '1.12.0';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -406,9 +406,22 @@
 
         const HX = { dx: 42, seq: [], rot: 0.4, tilt: -0.3, spin: true, dragging: false, lastX: 0, lastY: 0, w: 0, h: 0 };
         // Sphere radius equals strand radius, so the two spheres of a pair touch and the bond length is 0.
-const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: false, SHOW_PILLS: false, SHOW_DONUT: true };
+const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: false, SHOW_PILLS: false, SHOW_DONUT: true,
+            PITCH: 34, PAD_L: 170, PAD_R: 60, PAD_V: 56, VSPAN: 280 }; // PITCH: column spacing (one strand width); PAD_*: room for donut and labels; VSPAN: max run height
         const BASE_COLOURS = { A: '#ff6b6b', T: '#4dabf7', C: '#ffd43b', G: '#51cf66' };
         const COMPLEMENTS = { A: 'T', T: 'A', C: 'G', G: 'C' };
+
+        // Serpentine layout: the strand runs up one column, steps right by one strand width,
+        // runs down the next column, and so on across the full page width, starting bottom-left.
+        function helixLayout(n) {
+            const { PITCH, PAD_L, PAD_R, VSPAN, DX } = HELIX;
+            // Leave ~20% headroom: the tilt brings the far side of the path closer to the camera and enlarges it
+            const cols = Math.max(1, Math.floor((HX.w - PAD_L - PAD_R) / (PITCH * 1.2)));
+            const bpc = Math.max(4, Math.ceil(n / cols));        // base pairs per column
+            const K = Math.ceil(n / bpc);                         // columns actually used
+            const dxs = Math.min(DX, VSPAN / (bpc - 1));          // spacing along a column
+            return { bpc, K, dxs, span: (bpc - 1) * dxs };
+        }
 
         function sizeHelixCanvas() {
             const n = HX.seq.length;
@@ -417,9 +430,8 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
                 HX.w = 720;
                 HX.h = 242;
             } else {
-                HX.dx = Math.min(HELIX.DX, 12000 / Math.max(1, n)); // compress for long sequences
-                HX.w = Math.max(480, (n - 1) * HX.dx + 160);
-                HX.h = Math.round(HELIX.R * 2.6 + 60);
+                HX.w = Math.max(480, window.innerWidth - 32); // fill page width (16px gutter each side)
+                HX.h = Math.round(helixLayout(n).span + 2 * HELIX.PAD_V);
             }
             helixCanvas.width = Math.round(HX.w * dpr);
             helixCanvas.height = Math.round(HX.h * dpr);
@@ -463,14 +475,20 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
                 return;
             }
 
-            const { R, CR, STEP } = HELIX;
-            const DX = HX.dx;
+            const { R, CR, STEP, PITCH, PAD_L } = HELIX;
+            const L = helixLayout(n);
+            // 3D x of a column's centre, measured from the canvas centre
+            const colX = c => PAD_L + PITCH / 2 + c * PITCH - HX.w / 2;
+            // Vertical position: even columns run upward (from bottom), odd columns run downward
+            const rowY = (c, k) => (c % 2 === 0) ? ((L.bpc - 1) / 2 - k) * L.dxs
+                                                 : (k - (L.bpc - 1) / 2) * L.dxs;
             const raw1 = [], raw2 = [];
             for (let i = 0; i < n; i++) {
-                const x = (i - (n - 1) / 2) * DX;
-                const t = i * STEP;
-                raw1.push(rotate3({ x, y: R * Math.cos(t), z: R * Math.sin(t) }));
-                raw2.push(rotate3({ x, y: R * Math.cos(t + Math.PI), z: R * Math.sin(t + Math.PI) }));
+                const c = Math.floor(i / L.bpc), k = i % L.bpc;
+                const th = c * STEP;              // the twist advances only at each horizontal turn
+                const x = colX(c), y = rowY(c, k); // vertical runs stay untwisted
+                raw1.push(rotate3({ x: x + R * Math.cos(th), y, z: R * Math.sin(th) }));
+                raw2.push(rotate3({ x: x - R * Math.cos(th), y, z: -R * Math.sin(th) }));
             }
             let maxZ = 0;
             for (const p of raw1.concat(raw2)) maxZ = Math.max(maxZ, Math.abs(p.z));
@@ -565,10 +583,11 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
 
             // Painter's algorithm: far items first, near items last
             // 3D donut (torus) around the left end of the helix, lit from the upper left
-            let donutLeft = Infinity; // left-most screen x of the donut, used to place the 5' label
+            // Donut sits just left of the start (bottom-left) of the path, level with the first base pair
+            const xD = colX(0) - 58, yD = rowY(0, 0);
+            let donutLeft = Infinity; // left-most screen x of the donut, used to place the 3' label
             if (HELIX.SHOW_DONUT) {
                 const UN = 48, VN = 16;
-                const xL = (0 - (n - 1) / 2) * DX + 30; // left-most base pair, shifted right by 30 so the 5' label stays visible
                 const Rt = R + CR + 10;               // ring radius (clears both strands)
                 const rt = 8;                         // tube radius
                 const grid = [];
@@ -579,7 +598,7 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
                     for (let iv = 0; iv <= VN; iv++) {
                         const v = (iv / VN) * Math.PI * 2;
                         const cv = Math.cos(v), sv = Math.sin(v);
-                        const q = rotate3({ x: xL + rt * sv, y: (Rt + rt * cv) * cu, z: (Rt + rt * cv) * su });
+                        const q = rotate3({ x: xD + rt * sv, y: yD + (Rt + rt * cv) * cu, z: (Rt + rt * cv) * su });
                         const nn = rotate3({ x: sv, y: cv * cu, z: cv * su });
                         row.push({ p: project(q, cam), n: nn });
                     }
@@ -617,19 +636,19 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
             items.sort((a, b) => a.depth - b.depth);
             items.forEach(item => item.draw());
 
-            // 5' and 3' labels: light grey, at the helix's vertical centre,
-            // just outside its left and right ends
-            const all = strand1.concat(strand2);
-            const minX = Math.min(...all.map(p => p.sx - CR * p.s));
-            const maxX = Math.max(...all.map(p => p.sx + CR * p.s));
-            const midY = HX.h / 2;
+            // 3' label: left of the start, level with the donut centre.
+            // 5' label: right of the final base pair.
+            const startC = project(rotate3({ x: xD, y: yD, z: 0 }), cam);
+            const leftEdge = HELIX.SHOW_DONUT ? donutLeft : startC.sx;
+            const endA = strand1[n - 1], endB = strand2[n - 1];
+            const endRight = Math.max(endA.sx + CR * endA.s, endB.sx + CR * endB.s);
             ctx.fillStyle = '#d9d9d9';
             ctx.font = 'bold 16px monospace';
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'right';
-            ctx.fillText("3'", Math.min(minX, donutLeft) - 10, midY);
+            ctx.fillText("3'", leftEdge - 10, startC.sy);
             ctx.textAlign = 'left';
-            ctx.fillText("5'", maxX + 10, midY);
+            ctx.fillText("5'", endRight + 10, (endA.sy + endB.sy) / 2);
         }
 
         function renderHelix() {
@@ -670,6 +689,9 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
         }
         helixCanvas.addEventListener('pointerup', endDrag);
         helixCanvas.addEventListener('pointercancel', endDrag);
+
+        // Re-fit the serpentine to the page width when the window changes size
+        window.addEventListener('resize', () => { if (HX.seq.length) renderHelix(); });
 
         function animateHelix() {
             if (HX.spin && !HX.dragging) {
