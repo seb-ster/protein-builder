@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNA Double Helix Visualizer</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --text-color: #c9d1d9;
+            --border-color: #30363d;
+            --accent-a: #ff6b6b;
+            --accent-t: #4dabf7;
+            --accent-c: #ffd43b;
+            --accent-g: #51cf66;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 20px 20px 20px;
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        h1 {
+            margin: 0 0 15px 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+        }
+
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .input-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            font-family: monospace;
+            box-sizing: border-box;
+            white-space: pre;
+            overflow: hidden;
+            pointer-events: none;
+            border: 2px solid transparent;
+            text-transform: uppercase;
+            color: transparent;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            font-family: monospace;
+            background-color: #0d1117;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            color: transparent;
+            caret-color: #ffffff;
+            outline: none;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            text-transform: uppercase;
+            position: relative;
+            z-index: 2;
+            background: transparent;
+        }
+
+        input[type="text"]:focus {
+            border-color: #58a6ff;
+            box-shadow: 0 0 8px rgba(88, 166, 255, 0.4);
+        }
+
+        .char-valid {
+            color: #c9d1d9;
+        }
+
+        .char-invalid {
+            color: #ff6b6b;
+            font-weight: bold;
+            text-decoration: underline wavy #ff6b6b;
+        }
+
+        .hint {
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: #8b949e;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .visualization-container {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+            overflow-x: auto;
+        }
+
+        .dna-ladder {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            min-width: max-content;
+        }
+
+        .nucleotide-pair {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        /* Horizontal backbone line connecting to the next node */
+        .backbone-h {
+            position: absolute;
+            top: 18px;
+            left: 38px;
+            width: 40px;
+            height: 3px;
+            background-color: #ced4da;
+            z-index: 1;
+        }
+
+        .backbone-h-bottom {
+            position: absolute;
+            bottom: 18px;
+            left: 38px;
+            width: 40px;
+            height: 3px;
+            background-color: #ced4da;
+            z-index: 1;
+        }
+
+        /* Vertical bond line connecting Strand 1 and Strand 2 */
+        .bond-v {
+            width: 3px;
+            height: 50px;
+            background-color: #ced4da;
+            margin: 6px 0;
+            z-index: 1;
+        }
+
+        .circle {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1rem;
+            font-family: monospace;
+            color: #ffffff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            transition: transform 0.2s ease;
+            z-index: 2;
+        }
+
+        .circle:hover {
+            transform: scale(1.15);
+        }
+
+        .base-a { background-color: var(--accent-a); }
+        .base-t { background-color: var(--accent-t); }
+        .base-c { background-color: var(--accent-c); color: #000000; }
+        .base-g { background-color: var(--accent-g); }
+
+        .placeholder-text {
+            color: #8b949e;
+            font-style: italic;
+            font-size: 1.1rem;
+            text-align: center;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <h1>DNA Double Helix Visualizer</h1>
+        <div class="input-wrapper">
+            <div id="inputBackdrop" class="input-backdrop"></div>
+            <input type="text" id="dnaInput" autocomplete="off" spellcheck="false" value="ATCGGCTA">
+        </div>
+        <div class="hint">Type A, T, C, or G. Illegal characters are highlighted in red within the input field.</div>
+        
+        <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-a)"></div>A (Adenine)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-t)"></div>T (Thymine)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-c)"></div>C (Cytosine)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-g)"></div>G (Guanine)</div>
+        </div>
+    </div>
+
+    <div class="visualization-container" id="vizContainer">
+        <div class="dna-ladder" id="dnaLadder"></div>
+    </div>
+
+    <script>
+        const dnaInput = document.getElementById('dnaInput');
+        const inputBackdrop = document.getElementById('inputBackdrop');
+        const dnaLadder = document.getElementById('dnaLadder');
+
+        const complements = {
+            'A': 'T',
+            'T': 'A',
+            'C': 'G',
+            'G': 'C'
+        };
+
+        function getBaseClass(base) {
+            switch(base) {
+                case 'A': return 'base-a';
+                case 'T': return 'base-t';
+                case 'C': return 'base-c';
+                case 'G': return 'base-g';
+                default: return 'base-a';
+            }
+        }
+
+        function updateInputBackdrop(val) {
+            inputBackdrop.innerHTML = '';
+            for (let i = 0; i < val.length; i++) {
+                const char = val[i];
+                const span = document.createElement('span');
+                span.textContent = char;
+                if (['A', 'T', 'C', 'G'].includes(char.toUpperCase())) {
+                    span.className = 'char-valid';
+                } else {
+                    span.className = 'char-invalid';
+                }
+                inputBackdrop.appendChild(span);
+            }
+        }
+
+        function renderHelix() {
+            const rawValue = dnaInput.value;
+            updateInputBackdrop(rawValue);
+            dnaLadder.innerHTML = '';
+
+            const upperVal = rawValue.toUpperCase();
+            const validChars = upperVal.split('').filter(c => ['A','T','C','G'].includes(c));
+
+            if (validChars.length === 0) {
+                dnaLadder.innerHTML = '<div class="placeholder-text">Enter valid DNA letters (A, T, C, G) above to display both strands.</div>';
+                return;
+            }
+
+            for (let i = 0; i < validChars.length; i++) {
+                const topBase = validChars[i];
+                const bottomBase = complements[topBase] || 'A';
+
+                const pairDiv = document.createElement('div');
+                pairDiv.className = 'nucleotide-pair';
+                pairDiv.style.marginRight = (i < validChars.length - 1) ? '40px' : '0px';
+
+                const topCircle = document.createElement('div');
+                topCircle.className = `circle ${getBaseClass(topBase)}`;
+                topCircle.textContent = topBase;
+
+                const bondV = document.createElement('div');
+                bondV.className = 'bond-v';
+
+                const bottomCircle = document.createElement('div');
+                bottomCircle.className = `circle ${getBaseClass(bottomBase)}`;
+                bottomCircle.textContent = bottomBase;
+
+                pairDiv.appendChild(topCircle);
+                pairDiv.appendChild(bondV);
+                pairDiv.appendChild(bottomCircle);
+
+                // Add horizontal backbone connectors to the next pair
+                if (i < validChars.length - 1) {
+                    const backboneTop = document.createElement('div');
+                    backboneTop.className = 'backbone-h';
+                    pairDiv.appendChild(backboneTop);
+
+                    const backboneBottom = document.createElement('div');
+                    backboneBottom.className = 'backbone-h-bottom';
+                    pairDiv.appendChild(backboneBottom);
+                }
+
+                dnaLadder.appendChild(pairDiv);
+            }
+        }
+
+        dnaInput.addEventListener('input', renderHelix);
+        renderHelix();
+    </script>
+</body>
+</html>
