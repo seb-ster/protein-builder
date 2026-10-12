@@ -213,6 +213,17 @@
         .base-c { background-color: var(--accent-c); color: #000000; }
         .base-g { background-color: var(--accent-g); }
 
+        .version-label {
+            position: fixed;
+            top: 8px;
+            left: 12px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: #9ca3af;
+            pointer-events: none;
+            z-index: 100;
+        }
+
         .placeholder-text {
             color: #8b949e;
             font-style: italic;
@@ -223,6 +234,8 @@
     </style>
 </head>
 <body>
+
+    <div id="versionLabel" class="version-label"></div>
 
     <div class="header-container">
         <h1>DNA Double Helix Visualizer</h1>
@@ -245,6 +258,21 @@
     </div>
 
     <script>
+        const APP_VERSION = '1.1.0';
+
+        // 32-bit FNV-1a hash of the version string, shown as the load hash.
+        function loadHash(str) {
+            let h = 0x811c9dc5;
+            for (let i = 0; i < str.length; i++) {
+                h ^= str.charCodeAt(i);
+                h = Math.imul(h, 0x01000193) >>> 0;
+            }
+            return h.toString(16).padStart(8, '0');
+        }
+
+        document.getElementById('versionLabel').textContent =
+            `v${APP_VERSION} · hash ${loadHash(APP_VERSION)}`;
+
         const dnaInput = document.getElementById('dnaInput');
         const inputBackdrop = document.getElementById('inputBackdrop');
         const helixWrapper = document.getElementById('helixWrapper');
