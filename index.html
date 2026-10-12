@@ -332,7 +332,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.9.2';
+        const APP_VERSION = '1.10.1';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -405,7 +405,7 @@
 
         const HX = { dx: 42, seq: [], rot: 0.4, tilt: -0.3, spin: true, dragging: false, lastX: 0, lastY: 0, w: 0, h: 0 };
         // Sphere radius equals strand radius, so the two spheres of a pair touch and the bond length is 0.
-const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: false, SHOW_PILLS: false };
+const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: false, SHOW_PILLS: false, SHOW_DONUT: true };
         const BASE_COLOURS = { A: '#ff6b6b', T: '#4dabf7', C: '#ffd43b', G: '#51cf66' };
         const COMPLEMENTS = { A: 'T', T: 'A', C: 'G', G: 'C' };
 
@@ -563,6 +563,56 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
             }
 
             // Painter's algorithm: far items first, near items last
+            // 3D donut (torus) around the left end of the helix, lit from the upper left
+            let donutLeft = Infinity; // left-most screen x of the donut, used to place the 5' label
+            if (HELIX.SHOW_DONUT) {
+                const UN = 48, VN = 16;
+                const xL = (0 - (n - 1) / 2) * DX;   // x of the left-most base pair
+                const Rt = R + CR + 10;               // ring radius (clears both strands)
+                const rt = 8;                         // tube radius
+                const grid = [];
+                for (let iu = 0; iu <= UN; iu++) {
+                    const u = (iu / UN) * Math.PI * 2;
+                    const cu = Math.cos(u), su = Math.sin(u);
+                    const row = [];
+                    for (let iv = 0; iv <= VN; iv++) {
+                        const v = (iv / VN) * Math.PI * 2;
+                        const cv = Math.cos(v), sv = Math.sin(v);
+                        const q = rotate3({ x: xL + rt * sv, y: (Rt + rt * cv) * cu, z: (Rt + rt * cv) * su });
+                        const nn = rotate3({ x: sv, y: cv * cu, z: cv * su });
+                        row.push({ p: project(q, cam), n: nn });
+                    }
+                    grid.push(row);
+                    for (const c of row) donutLeft = Math.min(donutLeft, c.p.sx);
+                }
+                const L = { x: -0.4, y: -0.5, z: 0.77 }; // light direction
+                for (let iu = 0; iu < UN; iu++) {
+                    for (let iv = 0; iv < VN; iv++) {
+                        const c00 = grid[iu][iv], c10 = grid[iu + 1][iv];
+                        const c11 = grid[iu + 1][iv + 1], c01 = grid[iu][iv + 1];
+                        const pts = [c00, c10, c11, c01];
+                        const nx = pts.reduce((t, c) => t + c.n.x, 0) / 4;
+                        const ny = pts.reduce((t, c) => t + c.n.y, 0) / 4;
+                        const nz = pts.reduce((t, c) => t + c.n.z, 0) / 4;
+                        const dot = Math.max(0, nx * L.x + ny * L.y + nz * L.z);
+                        const shade = 0.35 + 0.65 * dot;
+                        const g = Math.round(90 + 150 * shade);
+                        const depth = pts.reduce((t, c) => t + c.p.z, 0) / 4;
+                        items.push({ depth, draw() {
+                            ctx.beginPath();
+                            ctx.moveTo(pts[0].p.sx, pts[0].p.sy);
+                            for (let k = 1; k < 4; k++) ctx.lineTo(pts[k].p.sx, pts[k].p.sy);
+                            ctx.closePath();
+                            ctx.fillStyle = `rgb(${g},${g},${g})`;
+                            ctx.fill();
+                            ctx.strokeStyle = `rgb(${g},${g},${g})`;
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        } });
+                    }
+                }
+            }
+
             items.sort((a, b) => a.depth - b.depth);
             items.forEach(item => item.draw());
 
@@ -576,7 +626,7 @@ const HELIX = { DX: 28, R: 14, CR: 14, STEP: Math.PI / 4, CAM: 520, SHOW_BONDS: 
             ctx.font = 'bold 16px monospace';
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'right';
-            ctx.fillText("5'", minX - 10, midY);
+            ctx.fillText("5'", Math.min(minX, donutLeft) - 10, midY);
             ctx.textAlign = 'left';
             ctx.fillText("3'", maxX + 10, midY);
         }
