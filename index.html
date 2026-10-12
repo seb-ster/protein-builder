@@ -310,7 +310,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.6.1';
+        const APP_VERSION = '1.7.0';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -475,6 +475,13 @@
                     ctx.beginPath();
                     ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2);
                     ctx.fillStyle = BASE_COLOURS[base];
+                    ctx.fill();
+                    // Shade the base as a sphere: highlight at top-left, darker rim
+                    const shade = ctx.createRadialGradient(p.sx - r * 0.35, p.sy - r * 0.35, r * 0.05, p.sx, p.sy, r);
+                    shade.addColorStop(0, 'rgba(255,255,255,0.75)');
+                    shade.addColorStop(0.45, 'rgba(255,255,255,0)');
+                    shade.addColorStop(1, 'rgba(0,0,0,0.5)');
+                    ctx.fillStyle = shade;
                     ctx.fill();
                     ctx.fillStyle = base === 'C' ? '#000000' : '#ffffff';
                     ctx.font = `bold ${Math.round(15 * p.s)}px monospace`;
