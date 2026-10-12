@@ -286,7 +286,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '1.5.0';
+        const APP_VERSION = '1.5.1';
 
         // 32-bit FNV-1a hash of the version string, shown as the load hash.
         function loadHash(str) {
@@ -353,7 +353,7 @@
         helixCanvas.style.cursor = 'grab';
         helixCanvas.style.touchAction = 'none';
 
-        const HX = { seq: [], rot: 0.4, tilt: -0.3, spin: true, dragging: false, lastX: 0, lastY: 0, w: 0, h: 0 };
+        const HX = { dx: 42, seq: [], rot: 0.4, tilt: -0.3, spin: true, dragging: false, lastX: 0, lastY: 0, w: 0, h: 0 };
         const HELIX = { DX: 42, R: 70, CR: 14, STEP: Math.PI / 4, CAM: 520 };
         const BASE_COLOURS = { A: '#ff6b6b', T: '#4dabf7', C: '#ffd43b', G: '#51cf66' };
         const COMPLEMENTS = { A: 'T', T: 'A', C: 'G', G: 'C' };
@@ -361,7 +361,8 @@
         function sizeHelixCanvas() {
             const n = HX.seq.length;
             const dpr = window.devicePixelRatio || 1;
-            HX.w = Math.max(480, (n - 1) * HELIX.DX + 160);
+            HX.dx = Math.min(HELIX.DX, 12000 / Math.max(1, n)); // compress for long sequences
+            HX.w = Math.max(480, (n - 1) * HX.dx + 160);
             HX.h = Math.round(HELIX.R * 2.6 + 60);
             helixCanvas.width = Math.round(HX.w * dpr);
             helixCanvas.height = Math.round(HX.h * dpr);
@@ -393,7 +394,8 @@
             const n = HX.seq.length;
             if (n === 0) return;
 
-            const { DX, R, CR, STEP } = HELIX;
+            const { R, CR, STEP } = HELIX;
+            const DX = HX.dx;
             const strand1 = [], strand2 = [];
             for (let i = 0; i < n; i++) {
                 const x = (i - (n - 1) / 2) * DX;
